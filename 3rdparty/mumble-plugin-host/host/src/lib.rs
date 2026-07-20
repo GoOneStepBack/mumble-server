@@ -18,8 +18,8 @@ pub use ffi::{
     plugin_host_create, plugin_host_destroy, plugin_host_free_string,
     plugin_host_get_registry_json, plugin_host_install_plugin, plugin_host_list_plugins,
     plugin_host_on_client_connected, plugin_host_on_client_disconnected,
-    plugin_host_on_plugin_data, plugin_host_on_plugin_message, plugin_host_set_plugin_enabled,
-    plugin_host_uninstall_plugin, PluginHostHandle,
+    plugin_host_on_plugin_data, plugin_host_on_plugin_message, plugin_host_on_server_event,
+    plugin_host_set_plugin_enabled, plugin_host_uninstall_plugin, PluginHostHandle,
 };
 
 /// Fuzzing-only entry points into the marketplace-install parsers.

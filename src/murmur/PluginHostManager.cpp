@@ -13,6 +13,7 @@
 #include "ACL.h"
 #include "Mumble.pb.h"
 
+#include <QtCore/QDateTime>
 #include <QtCore/QDebug>
 #include <QtCore/QJsonArray>
 #include <QtCore/QJsonDocument>
@@ -156,6 +157,68 @@ void PluginHostManager::onPluginMessage(uint32_t senderSession, const QString &s
                 payload.empty() ? nullptr : reinterpret_cast< const uint8_t * >(payload.data()),
                 payload.size(), targets.isEmpty() ? nullptr : targets.constData(),
                 static_cast< size_t >(targets.size()), channelPresent, channelId);
+}
+
+namespace {
+// Prefixed (not the generic `identityJson`) so the unity build cannot collide
+// this anonymous-namespace symbol with an identically-named helper in another
+// translation unit (see the audit-log handover, pitfall #2).
+QJsonObject serverEventIdentityJson(const ServerUser *u) {
+        QJsonObject obj;
+        if (!u) {
+                return obj;
+        }
+        if (u->iId >= 0) {
+                obj.insert(QStringLiteral("user_id"), static_cast< qint64 >(u->iId));
+        }
+        if (!u->qsHash.isEmpty()) {
+                obj.insert(QStringLiteral("hash"), u->qsHash);
+        }
+        obj.insert(QStringLiteral("name"), u->qsName);
+        return obj;
+}
+} // namespace
+
+void PluginHostManager::emitServerEvent(const QString &kind, const ServerUser *actor,
+                                        const ServerUser *target, int64_t channelId,
+                                        const QJsonObject &detail) {
+        if (!m_handle) {
+                return;
+        }
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+
+        QJsonObject event;
+        event.insert(QStringLiteral("kind"), kind);
+        event.insert(QStringLiteral("ts_ms"), now);
+        if (actor) {
+                event.insert(QStringLiteral("actor"), serverEventIdentityJson(actor));
+        }
+        if (target) {
+                event.insert(QStringLiteral("target"), serverEventIdentityJson(target));
+        }
+        if (channelId >= 0) {
+                event.insert(QStringLiteral("channel_id"), static_cast< qint64 >(channelId));
+        }
+        if (!detail.isEmpty()) {
+                event.insert(QStringLiteral("detail_json"),
+                             QString::fromUtf8(QJsonDocument(detail).toJson(QJsonDocument::Compact)));
+        }
+
+        // Offsets are the consuming plugin's idempotency key and must stay
+        // unique across restarts: derive from the wall clock with a
+        // same-millisecond tie-breaker rather than an in-process counter.
+        const uint64_t seq    = m_serverEventSeq.fetch_add(1, std::memory_order_relaxed) % 1000;
+        const uint64_t offset = static_cast< uint64_t >(now) * 1000 + seq;
+
+        QJsonObject envelope;
+        envelope.insert(QStringLiteral("offset"), static_cast< qint64 >(offset));
+        envelope.insert(QStringLiteral("event"), event);
+
+        const QByteArray json = QJsonDocument(envelope).toJson(QJsonDocument::Compact);
+        plugin_host_on_server_event(
+                m_handle, static_cast< uint32_t >(m_server->iServerNum),
+                json.isEmpty() ? nullptr : reinterpret_cast< const uint8_t * >(json.constData()),
+                static_cast< size_t >(json.size()));
 }
 
 void PluginHostManager::fillRegistry(::MumbleProto::PluginRegistry &out) const {

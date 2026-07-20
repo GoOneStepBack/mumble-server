@@ -12,6 +12,7 @@
 #include <QString>
 #include <QVector>
 
+#include <atomic>
 #include <cstdint>
 #include <functional>
 
@@ -25,6 +26,8 @@ class PluginRegistry;
 
 class Server;
 class User;
+class ServerUser;
+class QJsonObject;
 
 /// Owns the Rust plugin-host cdylib and bridges Mumble server events
 /// (client connect/disconnect, plugin data) to it. Also implements the
@@ -55,6 +58,16 @@ public:
         /// Build the PluginRegistry message for the currently loaded
         /// set of plugins.  The server sends this right after ServerSync.
         void fillRegistry(::MumbleProto::PluginRegistry &out) const;
+
+        /// Publish one server-authoritative event (a moderation action,
+        /// channel lifecycle change, etc.) to every loaded plugin via the
+        /// host's feature-agnostic `on_server_event` fan-out.  The server does
+        /// not know or care which plugin, if any, consumes it - this is what
+        /// replaced the audit-specific `AuditLogBridge`.  `actor`/`target` may
+        /// be null; `channelId < 0` means "no channel"; `detail` is the
+        /// category-specific structured payload (may be empty).
+        void emitServerEvent(const QString &kind, const ServerUser *actor, const ServerUser *target,
+                             int64_t channelId, const QJsonObject &detail);
 
         /// Whether the host loaded successfully.
         bool isLoaded() const { return m_handle != nullptr; }
@@ -165,6 +178,9 @@ private:
         /// onUserStateChanged re-announces a client only when its registration
         /// actually changed (not on every mute/move/comment).
         QHash< uint32_t, int64_t > m_lastUserId;
+        /// Tie-breaker for server-event ingest offsets minted in the same
+        /// millisecond (see emitServerEvent).  Moved here from AuditLogBridge.
+        std::atomic< uint64_t > m_serverEventSeq{ 0 };
 };
 
 #endif // PLUGIN_HOST_MANAGER_H_

@@ -103,11 +103,10 @@
     PROCESS_MUMBLE_TCP_MESSAGE(FancyAccountSettings, 154) \
     PROCESS_MUMBLE_TCP_MESSAGE(FancyAccountSettingsUpdate, 155) \
     PROCESS_MUMBLE_TCP_MESSAGE(FancyAccountAck, 156) \
-    PROCESS_MUMBLE_TCP_MESSAGE(FancyAuditQuery, 166) \
-    PROCESS_MUMBLE_TCP_MESSAGE(FancyAuditResponse, 167) \
-    PROCESS_MUMBLE_TCP_MESSAGE(FancyAuditEvent, 168) \
-    PROCESS_MUMBLE_TCP_MESSAGE(FancyAuditConfig, 170) \
-    PROCESS_MUMBLE_TCP_MESSAGE(FancyAuditConfigUpdate, 171) \
+    /* Wire IDs 166-171 are reserved (formerly the audit-log query/config    */ \
+    /* protocol). The audit log is now fully opaque to the server: the client */ \
+    /* speaks to the fancy-audit plugin over the generic PluginMessage        */ \
+    /* channel (200), so the server carries no audit-specific wire messages.  */ \
     PROCESS_MUMBLE_TCP_MESSAGE(PluginMessage, 200) \
     PROCESS_MUMBLE_TCP_MESSAGE(PluginRegistry, 201)
 

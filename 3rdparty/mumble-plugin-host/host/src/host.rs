@@ -435,6 +435,27 @@ impl Host {
         }
     }
 
+    /// Fan a server-authoritative event out to every loaded plugin via
+    /// [`mumble_plugin_api::MumblePlugin::on_server_event`].  `event_json` is
+    /// an opaque envelope the host neither parses nor routes by content - a
+    /// plugin that cares (e.g. the audit log) parses it itself; the rest
+    /// ignore it.  This is what keeps the server feature-agnostic: it emits
+    /// "a channel was created / a user was banned" without knowing any plugin
+    /// consumes it.
+    pub(crate) fn on_server_event(&self, server_id: ServerId, event_json: String) {
+        let json = RStr::from(event_json.as_str());
+        for entry in self.plugins.iter().filter(|e| e.loaded) {
+            let Some(ctx) = entry.ctx.as_ref() else {
+                continue;
+            };
+            if let abi_stable::std_types::RResult::RErr(e) =
+                entry.plugin.plugin.on_server_event(ctx, server_id, json)
+            {
+                tracing::warn!(plugin = %entry.name, error = %e, "on_server_event failed");
+            }
+        }
+    }
+
     /// Build the per-server `PluginRegistry` payload as JSON.  Each
     /// entry: `{"plugin_name":..,"version":..,"plugin_slot":i,"info_json":".."}`.
     /// The C++ side wraps this into the protobuf `PluginRegistry`

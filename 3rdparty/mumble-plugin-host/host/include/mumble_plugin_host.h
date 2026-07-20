@@ -306,6 +306,23 @@ void plugin_host_on_plugin_message(struct PluginHostHandle *handle,
                                    uint32_t channel_id);
 
 /**
+ * Publish one server-authoritative event to every loaded plugin (fan-out via
+ * `MumblePlugin::on_server_event`).  `event_json` is an opaque UTF-8 JSON
+ * envelope the host neither parses nor routes by content; a plugin that
+ * cares (e.g. the audit log) interprets it, the rest ignore it.  This is the
+ * feature-agnostic replacement for the removed server-side `AuditLogBridge`.
+ *
+ * # Safety
+ * `handle` must be valid; `event_json` must point to at least
+ * `event_json_len` readable bytes (or NULL when `event_json_len` is 0).
+ */
+
+void plugin_host_on_server_event(struct PluginHostHandle *handle,
+                                 uint32_t server_id,
+                                 const uint8_t *event_json,
+                                 uintptr_t event_json_len);
+
+/**
  * Return the JSON-encoded plugin registry payload that the C++ server
  * embeds in a `PluginRegistry` message right after `ServerSync`.  The
  * returned pointer is heap-allocated by Rust (`CString::into_raw`) and

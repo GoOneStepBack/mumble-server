@@ -77,7 +77,7 @@ pub use mumble_plugin_api_derive::{
 ///
 /// The host refuses to load any cdylib that exposes a different value
 /// from its [`FancyPluginMod::abi_version`] field.
-pub const PLUGIN_ABI_VERSION: u32 = 3;
+pub const PLUGIN_ABI_VERSION: u32 = 4;
 
 /// ABI version of the **WebAssembly** plugin contract, defined by the shared
 /// WIT package in `wit/` (`world.wit` *and* `ui.wit` - both belong to
@@ -485,8 +485,9 @@ mod tests {
 
     #[test]
     fn abi_version_is_current() {
-        // Bumped to 3 when `PluginContext::send_request_response` was added.
-        assert_eq!(PLUGIN_ABI_VERSION, 3);
+        // Bumped to 3 when `PluginContext::send_request_response` was added;
+        // to 4 when the `MumblePlugin::on_server_event` fan-out hook was added.
+        assert_eq!(PLUGIN_ABI_VERSION, 4);
     }
 
     #[test]

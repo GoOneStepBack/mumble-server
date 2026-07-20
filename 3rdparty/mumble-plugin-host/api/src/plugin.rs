@@ -351,4 +351,25 @@ pub trait MumblePlugin: Send + Sync + 'static {
         let _ = (ctx, msg);
         ROk(())
     }
+
+    /// Fires for every server-authoritative event the host publishes -
+    /// moderation actions (ban/kick/mute/acl), channel lifecycle, plugin and
+    /// pchat administration, etc.  Unlike [`on_plugin_message`], this is a
+    /// **fan-out**: the event is delivered to every loaded plugin, and the
+    /// host never knows (or names) which plugin, if any, consumes it.
+    ///
+    /// `event_json` is an opaque JSON envelope the host does not interpret:
+    /// `{ "offset": <u64 idempotency key>, "event": { "kind": .., "ts_ms": ..,
+    /// "actor": {..}, "target": {..}, "channel_id": .., "detail_json": ".." } }`.
+    /// A plugin that cares parses it itself (see the audit plugin's
+    /// `parse_server_event`); the default drops it.
+    fn on_server_event(
+        &self,
+        ctx: &PluginContext_TO<RArc<()>>,
+        server_id: ServerId,
+        event_json: RStr<'_>,
+    ) -> PluginResult<()> {
+        let _ = (ctx, server_id, event_json);
+        ROk(())
+    }
 }

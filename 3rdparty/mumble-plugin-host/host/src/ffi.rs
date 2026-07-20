@@ -229,6 +229,42 @@ pub unsafe extern "C" fn plugin_host_on_plugin_message(
     })
 }
 
+/// Publish one server-authoritative event to every loaded plugin (fan-out via
+/// `MumblePlugin::on_server_event`).  `event_json` is an opaque UTF-8 JSON
+/// envelope the host neither parses nor routes by content; a plugin that
+/// cares (e.g. the audit log) interprets it, the rest ignore it.  This is the
+/// feature-agnostic replacement for the removed server-side `AuditLogBridge`.
+///
+/// # Safety
+/// `handle` must be valid; `event_json` must point to at least
+/// `event_json_len` readable bytes (or NULL when `event_json_len` is 0).
+#[no_mangle]
+pub unsafe extern "C" fn plugin_host_on_server_event(
+    handle: *mut PluginHostHandle,
+    server_id: u32,
+    event_json: *const u8,
+    event_json_len: usize,
+) {
+    ffi_guard("plugin_host_on_server_event", (), || {
+        let Some(host) = (unsafe { handle_lock(handle) }) else {
+            return;
+        };
+        let json: String = if event_json.is_null() || event_json_len == 0 {
+            String::new()
+        } else {
+            // SAFETY: caller guarantees `event_json` valid for `event_json_len` bytes.
+            String::from_utf8_lossy(unsafe {
+                std::slice::from_raw_parts(event_json, event_json_len)
+            })
+            .into_owned()
+        };
+        if json.is_empty() {
+            return;
+        }
+        host.on_server_event(server_id, json);
+    })
+}
+
 /// Return the JSON-encoded plugin registry payload that the C++ server
 /// embeds in a `PluginRegistry` message right after `ServerSync`.  The
 /// returned pointer is heap-allocated by Rust (`CString::into_raw`) and
